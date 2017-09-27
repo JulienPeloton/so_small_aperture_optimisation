@@ -10,6 +10,8 @@ from __future__ import division, absolute_import, print_function
 import ephem
 from datetime import datetime, date, time, timedelta
 import numpy as np
+
+## Define available objects
 sun = ephem.Sun()
 moon = ephem.Moon()
 
