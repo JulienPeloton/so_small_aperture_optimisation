@@ -1,4 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+"""
+Script to predict the trajectory of a body (Sun, Moon, ...) on the sky
+[(theta, phi) coordinates] over the course of a year.
+
+Author: Julien Peloton, j.peloton@sussex.ac.uk
+"""
+from __future__ import division, absolute_import, print_function
+
 import ephem
 from datetime import datetime, date, time, timedelta
 import numpy as np
@@ -27,13 +35,67 @@ def radec2thetaphi(ra, dec):
     phi = float(ra)
     return (theta, phi)
 
+def radec_of(ob, altaz):
+    """
+    Get RA/Dec from alt/az.
+
+    Parameters
+    ----------
+    ob : ephem.Observer instance
+        ephem class with properties of the observer.
+    altaz : tuple
+        Tuple containing (alt, az) in radians.
+
+    Returns
+    ----------
+    RA : float
+        RA of the body [radian].
+    Dec : float
+        Dec of the body [radian].
+    """
+    return ob.radec_of(altaz[1], altaz[0])
+
+def alt_az(body, ts, ob):
+    """
+    Compute altitude (elevation) and azimuth of the body.
+
+    Parameters
+    ----------
+    body : ephem.<body> instance
+        <body> can be Sun(), Moon(), and so on. See ephem.
+    ts : Python datetime instance
+        Floating point value used by ephem to represent a date.
+        The value is the number of days since 1899 December 31 12:00 UT. When
+        creating an instance you can pass in a Python datetime instance,
+        timetuple, year-month-day triple, or a plain float.
+        Run str() on this object to see the UTC date it represents.
+        ...
+        WTF?
+    ob : ephem.Observer instance
+        ephem class with properties of the observer.
+
+    Returns
+    ----------
+    alt : float
+        Altitude (elevation) of the body at the time of observation as
+        seen by the observer [radian].
+    az : float
+        Azimuth of the body at the time of observation as seen
+        by the observer [radian].
+    """
+    ob.date = ts
+    body.compute(ob)
+    return (body.alt, body.az)
+
 def thetaphi_of_body_oneday(body, date, lon, lat, tz_offset):
     """
     Compute the coordinate (theta, phi) of the Sun at a particular date
 
     Parameters
     ----------
-    date : ephem.Date
+    body : ephem.<body> instance
+        <body> can be Sun(), Moon(), and so on. See ephem.
+    date : Python datetime instance
         Floating point value used by ephem to represent a date.
         The value is the number of days since 1899 December 31 12:00 UT. When
         creating an instance you can pass in a Python datetime instance,
@@ -49,9 +111,9 @@ def thetaphi_of_body_oneday(body, date, lon, lat, tz_offset):
     Returns
     ----------
     theta : float
-        Theta angle in radian
+        Theta angle [radian].
     phi : float
-        Phi angle in radian
+        Phi angle [radian].
     """
     ob = ephem.Observer()
     ob.lat, ob.lon = lat, lon
@@ -62,24 +124,37 @@ def thetaphi_of_body_oneday(body, date, lon, lat, tz_offset):
     THETAPHI = radec2thetaphi(RADEC[0], RADEC[1])
     return THETAPHI[0], THETAPHI[1]
 
-def alt_az(body, ts, ob):
-    """
-    Compute altitude (elevation) and azimuth of the Sun.
-    """
-    ob.date = ts
-    body.compute(ob)
-    return (body.alt, body.az)
-
-def radec_of(ob, altaz):
-    """
-    Get RA/Dec from alt/az.
-    """
-    return ob.radec_of(altaz[1], altaz[0])
-
 def thetaphi_of_body_oneyear(body, lon_observer, lat_observer, year):
     """
     Plot the course of the sun over one year.
     We assume each month is made of 28 days.
+
+    Parameters
+    ----------
+    body : ephem.<body> instance
+        <body> can be Sun(), Moon(), and so on. See ephem.
+    lon_observer : str
+        Longitute (angle) of the telescope. String form: 0:00:00.0.
+    lat_observer : str
+        Latitude (angle) of the telescope. String form: 0:00:00.0.
+    year : int
+        Year of observation
+
+    Returns
+    ----------
+    coords : 2D array of floats
+        The (theta, phi) coordinate for all days of the year. We compute
+        the coordinate for only 28 days per month.
+    months : list of strings
+        Name of the 12 months.
+
+    Examples
+    ----------
+    >>> coords, months = thetaphi_of_body_oneyear('sun', '-67:46.816',
+    ...     '-22:56.396', 2013)
+    >>> print(round(coords[0][0], 2), round(coords[0][1], 2))
+    1.97 4.92
+
     """
     if body == 'sun':
         body = sun
@@ -94,8 +169,13 @@ def thetaphi_of_body_oneyear(body, lon_observer, lat_observer, year):
             t, p = thetaphi_of_body_oneday(
                 body,
                 val,
-                lon_observer.znorm,
-                lat_observer.znorm,
+                lon_observer,
+                lat_observer,
                 tz_offset=0)
             coords.append((t, p))
     return coords, months
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
